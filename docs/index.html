@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qofeno — Agent skills that refuse to fake it</title>
+<meta name="description" content="Open-source agent skills for Claude Code, Cursor, Antigravity, and Codex. No placeholder credentials, no lorem ipsum, no fake reports. Real output, or the agent stops and asks.">
+<meta property="og:title" content="Qofeno — Agent skills that refuse to fake it">
+<meta property="og:description" content="Real backends, real security fixes, real websites. No stand-ins, ever.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://skills.js.org">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c12;
+    --surface: #12141d;
+    --surface-border: #232634;
+    --text: #f0f1f6;
+    --muted: #8b90a3;
+    --indigo: #6c7cff;
+    --amber: #ffb454;
+    --green: #6fd08c;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Manrope', -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav.top {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10,12,18,0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--surface-border);
+  }
+  nav.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 700; font-size: 17px; letter-spacing: -0.02em; text-decoration: none; }
+  .brand svg { flex-shrink: 0; }
+  .navlinks { display: flex; gap: 28px; font-size: 14px; color: var(--muted); }
+  .navlinks a { text-decoration: none; }
+  .navlinks a:hover { color: var(--text); }
+
+  /* Hero */
+  .hero { padding: 88px 0 64px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 13px; color: var(--amber);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+  }
+  .eyebrow::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  h1 {
+    font-family: var(--mono); font-size: clamp(32px, 5vw, 52px); font-weight: 700;
+    line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 20px; max-width: 780px;
+  }
+  h1 .accent { color: var(--indigo); }
+  .lede { font-size: 18px; color: var(--muted); max-width: 620px; margin: 0 0 36px; }
+  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 56px; }
+  .btn {
+    font-family: var(--sans); font-weight: 700; font-size: 15px;
+    padding: 12px 22px; border-radius: 10px; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--indigo); color: #0a0c12; }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--surface-border); }
+  .btn-ghost:hover { border-color: var(--indigo); }
+
+  /* Terminal — the signature element */
+  .terminal {
+    background: var(--surface); border: 1px solid var(--surface-border);
+    border-radius: 12px; overflow: hidden; max-width: 640px;
+    box-shadow: 0 20px 60px -20px rgba(108,124,255,0.15);
+  }
+  .terminal-bar { display: flex; gap: 7px; padding: 12px 16px; border-bottom: 1px solid var(--surface-border); }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; } .dot.y { background: #ffbd2e; } .dot.g { background: #27c93f; }
+  .terminal-body { padding: 20px 22px 26px; font-family: var(--mono); font-size: 14px; }
+  .prompt { color: var(--muted); }
+  .cmd { color: var(--text); font-weight: 500; }
+  .out-line { color: var(--muted); margin-top: 6px; opacity: 0; animation: reveal 0.4s forwards; }
+  .out-line.ok::before { content: '✓ '; color: var(--green); }
+  #l1 { animation-delay: 0.9s; } #l2 { animation-delay: 1.15s; } #l3 { animation-delay: 1.4s; } #l4 { animation-delay: 1.65s; }
+  @keyframes reveal { to { opacity: 1; } }
+  .caret { display: inline-block; width: 8px; height: 16px; background: var(--indigo); vertical-align: middle; animation: blink 1s step-end infinite; margin-left: 2px; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .out-line { opacity: 1; animation: none; }
+    .caret { animation: none; }
+  }
+
+  /* Sections */
+  section { padding: 64px 0; border-top: 1px solid var(--surface-border); }
+  .section-head { margin-bottom: 36px; }
+  .section-label { font-family: var(--mono); font-size: 13px; color: var(--indigo); margin-bottom: 10px; }
+  h2 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--muted); font-size: 16px; margin: 0; max-width: 560px; }
+
+  /* No stand-ins — styled as check output, not a decorative list */
+  .checks { display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); font-size: 14.5px; }
+  .check { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--surface-border); }
+  .check:last-child { border-bottom: none; }
+  .check-mark { color: var(--green); flex-shrink: 0; }
+  .check-text { color: var(--text); font-family: var(--sans); }
+  .check-text b { color: var(--text); }
+  .check-text span { color: var(--muted); font-weight: 400; }
+
+  /* Skills grid */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--surface-border); border-radius: 12px;
+    padding: 22px;
+  }
+  .card-name { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--indigo); margin-bottom: 10px; }
+  .card-desc { color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 5px; margin-bottom: 12px;
+    background: rgba(111,208,140,0.12); color: var(--green);
+  }
+
+  /* Footer */
+  footer { padding: 48px 0 64px; border-top: 1px solid var(--surface-border); }
+  .foot-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+  .foot-links { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+  .foot-links a { text-decoration: none; }
+  .foot-links a:hover { color: var(--text); }
+  .foot-note { font-size: 13px; color: var(--muted); margin-top: 24px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap">
+    <a href="#" class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#6c7cff" stroke-width="2"/><line x1="15.5" y1="15.5" x2="20" y2="20" stroke="#6c7cff" stroke-width="2"/></svg>
+      QOFENO
+    </a>
+    <div class="navlinks">
+      <a href="#skills">Skills</a>
+      <a href="#principles">Principles</a>
+      <a href="https://github.com/SohailKhan0525/skills">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <section class="hero" style="border-top: none; padding-top: 72px;">
+    <div class="eyebrow">MIT LICENSED · OPEN FOR CONTRIBUTIONS</div>
+    <h1>Agent skills that<br>refuse to <span class="accent">fake it.</span></h1>
+    <p class="lede">Real backends, real security fixes, real websites. If a task needs something real, the skill gets the real thing — or it stops and asks. Never fakes it.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/SohailKhan0525/skills">View on GitHub</a>
+      <a class="btn btn-ghost" href="#skills">See the skills</a>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+      <div class="terminal-body">
+        <div><span class="prompt">$</span> <span class="cmd">npx skills add SohailKhan0525/skills</span><span class="caret"></span></div>
+        <div class="out-line ok" id="l1">installed backend-setup-wizard</div>
+        <div class="out-line ok" id="l2">installed security-hardening-wizard</div>
+        <div class="out-line ok" id="l3">installed frontend-ui-ux-wizard</div>
+        <div class="out-line ok" id="l4">installed skill-router</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="principles">
+    <div class="section-head">
+      <div class="section-label">// principles</div>
+      <h2>Four rules, no exceptions</h2>
+      <p class="section-sub">Every skill in this repo follows the same checks — not implied, written down explicitly.</p>
+    </div>
+    <div class="checks">
+      <div class="check">
+        <span class="check-mark">✓</span>
+        <span class="check-text"><b>No stand-ins.</b> <span>No placeholder code, mock data, or lorem ipsum. Real, or not written yet.</span></span>
+      </div>
+      <div class="check">
+        <span class="check-mark">✓</span>
+        <span class="check-text"><b>No giving up early.</b> <span>Blocked steps get real options tried — current docs, alternate paths — before "can't."</span></span>
+      </div>
+      <div class="check">
+        <span class="check-mark">✓</span>
+        <span class="check-text"><b>Stop and ask, don't route around it.</b> <span>Missing a credential or a decision only the user can make? Pause. Never fabricate a workaround.</span></span>
+      </div>
+      <div class="check">
+        <span class="check-mark">✓</span>
+        <span class="check-text"><b>Untrusted content stays untrusted.</b> <span>Fetched docs and web content are reference material, never instructions to blindly execute.</span></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="skills">
+    <div class="section-head">
+      <div class="section-label">// skills</div>
+      <h2>What's installable right now</h2>
+      <p class="section-sub">Four skills, each doing one real job end to end.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <span class="badge">STABLE</span>
+        <div class="card-name">backend-setup-wizard</div>
+        <div class="card-desc">Provisions, configures, and deploys real backends via CLI. Zero-knowledge credential handling — the agent never sees, types, or reads the raw key.</div>
+      </div>
+      <div class="card">
+        <span class="badge">STABLE</span>
+        <div class="card-name">security-hardening-wizard</div>
+        <div class="card-desc">Scans every file in a project for real vulnerabilities, fixes each one for real, and re-verifies with a forced fresh scan before calling anything done.</div>
+      </div>
+      <div class="card">
+        <span class="badge">STABLE</span>
+        <div class="card-name">frontend-ui-ux-wizard</div>
+        <div class="card-desc">Designs and builds real production websites — full site scope, real design tokens, deliberate fonts, real deploy. No lorem ipsum, ever.</div>
+      </div>
+      <div class="card">
+        <span class="badge">STABLE</span>
+        <div class="card-name">skill-router</div>
+        <div class="card-desc">Checks every installed skill — any publisher, not just this repo — for relevance before starting substantive work.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand" style="font-size:14px;">QOFENO</div>
+      <div class="foot-links">
+        <a href="https://github.com/SohailKhan0525/skills">GitHub</a>
+        <a href="https://github.com/SohailKhan0525/skills/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/SohailKhan0525/skills/blob/main/LICENSE">MIT License</a>
+        <a href="https://skills.sh/SohailKhan0525/skills">skills.sh</a>
+      </div>
+    </div>
+    <div class="foot-note">$ npx skills add SohailKhan0525/skills</div>
+  </div>
+</footer>
+
+</body>
+</html>
