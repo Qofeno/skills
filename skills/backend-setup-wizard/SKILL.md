@@ -49,7 +49,13 @@ Priority order — try each in sequence, and **you (the agent) never run a comma
 
 1. **Official CLI with OAuth/browser login (best, and you can run this yourself).** Check whether the provider has an official CLI with a login command that opens a browser or device-code flow (`stripe login`, `gh auth login`, `vercel login`, `supabase login`, `heroku login`, etc.). If so, run it directly — these flows authenticate without the raw secret ever appearing as text you or the user handle.
 2. **Official CLI, but key-based (no OAuth).** If the provider has an official CLI but its auth command takes a literal key argument (e.g. `provider config set API_KEY=...`) instead of an OAuth flow, **the user must run that command themselves, in their own terminal — not you.** Give them the exact command with a placeholder (e.g. `provider config set API_KEY=<paste here>`), tell them to run it in their own terminal window and replace the placeholder there, then just confirm back with "done" — never paste the filled-in command or its output back to you.
-3. **No official CLI at all.** Give the user a one-line shell command to run in their own terminal that reads the value with masked/hidden input and writes it directly to `.env` — never through you:
+3. **No official CLI at all — OS-level secret manager (preferred over plain `.env` for production/company use).** If the user is on a team, deploying for a real company, or just wants stronger protection than a plaintext file, offer the OS-native secret store instead of `.env`. The user runs the command themselves, in their own terminal:
+   - macOS: `security add-generic-password -a "$USER" -s "SERVICE_API_KEY" -w` (Keychain prompts for the value interactively; it's never written to a file or shown in your output)
+   - Windows: `cmdkey /generic:SERVICE_API_KEY /user:api /pass` (Credential Manager, same interactive-prompt behavior)
+   - Linux: `secret-tool store --label="Service API Key" service SERVICE_API_KEY` (via `libsecret`) — check `secret-tool` is installed first, or fall back to `pass insert SERVICE_API_KEY` if the user already uses `pass`
+   
+   The app then reads the value at runtime through the OS keychain API (or a small loader script) instead of an env var — this means the secret never sits in a plaintext file at all, which is meaningfully stronger for anything beyond local solo development. Mention this option plainly rather than defaulting silently to `.env` for every project; let the user pick based on how much this matters to them.
+4. **Plain `.env` (fine for local/solo dev).** If OS-level storage is overkill for what the user's building, give them a one-line shell command to run in their own terminal that reads the value with masked/hidden input and writes it directly to `.env` — never through you:
    - macOS/Linux: `read -s -p "Enter your [SERVICE] API key: " KEY && echo "SERVICE_API_KEY=$KEY" >> .env && unset KEY`
    - Windows PowerShell: `$key = Read-Host "Enter your [SERVICE] API key" -AsSecureString; $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($key)); Add-Content .env "SERVICE_API_KEY=$plain"; Clear-Variable plain,key`
    
@@ -59,10 +65,12 @@ Before any of this, if the user doesn't have a key yet at all: web-search the pr
 
 **If none of the above is possible** (the user genuinely has no terminal access in their environment), stop and tell them plainly that this skill can't securely authenticate without one of these paths — don't fall back to asking them to paste the key into chat. That's the one case where stopping is the correct outcome, not a workaround.
 
+**The point across all four options is the same: you never know the user's real key.** Not a summary of it, not a masked-but-reconstructable version, not a copy sitting in your own reasoning. The credential exists in exactly one place the user controls — a file, or the OS keychain — and you interact with its *presence*, never its *value*.
+
 ## Step 4 — Confirm it landed, without reading it
 
-- Ask the user to confirm the credential is set (via whichever path from Step 3) — take their word for it, don't verify by reading `.env` yourself.
-- If you need to confirm a value exists (not what it is), use a presence-only check that never prints the value, e.g. `grep -q "^SERVICE_API_KEY=" .env && echo present || echo missing` — `grep -q` is silent on match, so the secret itself never appears in your output.
+- Ask the user to confirm the credential is set (via whichever path from Step 3) — take their word for it, don't verify by reading `.env` or the keychain entry yourself.
+- If you need to confirm a value exists (not what it is), use a presence-only check that never prints the value, e.g. `grep -q "^SERVICE_API_KEY=" .env && echo present || echo missing` for `.env`, or `security find-generic-password -s "SERVICE_API_KEY" -a "$USER" > /dev/null 2>&1 && echo present || echo missing` for macOS Keychain — both are silent on the actual value, presence-only.
 - If `.env` doesn't exist yet and the user's Step 3 command was supposed to create it, ask them to confirm the file exists rather than opening/reading it yourself.
 - Ensure `.gitignore` excludes `.env` — check for a `.gitignore`, and if `.env` isn't already listed, add the line yourself (this doesn't require reading the secret, just the filename).
 - The real verification that it *works* happens in Step 5, via the provider's own CLI status check — not by inspecting the file.

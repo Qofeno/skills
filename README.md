@@ -1,8 +1,8 @@
 # Qofeno Skills
 
-<a href="https://skills.sh/SohailKhan0525/skills"><img src="https://skills.sh/b/SohailKhan0525/skills" alt="skills.sh" /></a>
+<a href="https://skills.sh/Qofeno/skills"><img src="https://skills.sh/b/Qofeno/skills" alt="skills.sh" /></a>
 <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-<a href="./.github/workflows/validate-skills.yml"><img src="https://github.com/SohailKhan0525/skills/actions/workflows/validate-skills.yml/badge.svg" alt="Validate Skills" /></a>
+<a href="./.github/workflows/validate-skills.yml"><img src="https://github.com/Qofeno/skills/actions/workflows/validate-skills.yml/badge.svg" alt="Validate Skills" /></a>
 <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" /></a>
 
 ![demo](./demo.gif)
@@ -16,13 +16,13 @@ Works with [Claude Code](https://claude.com/product/claude-code), [Cursor](https
 ## Install
 
 ```bash
-npx skills add SohailKhan0525/skills
+npx skills add Qofeno/skills
 ```
 
 Or install one skill at a time:
 
 ```bash
-npx skills add SohailKhan0525/skills --skill backend-setup-wizard
+npx skills add Qofeno/skills --skill backend-setup-wizard
 ```
 
 Want the agent to check *every* installed skill — from any source — before starting any request, not just when a prompt obviously matches? See [ALWAYS-ON-SETUP.md](./ALWAYS-ON-SETUP.md).
@@ -31,14 +31,14 @@ Want the agent to check *every* installed skill — from any source — before s
 
 | Skill | Status | What it does |
 |---|---|---|
-| [`backend-setup-wizard`](./skills/backend-setup-wizard) | ✅ Stable | Provisions, configures, and deploys real, live backends and third-party services (databases, auth, payments, etc.) entirely via CLI. Zero-knowledge credential handling — the agent never sees, types, or reads the raw key; auth happens via OAuth/CLI-login or the user's own terminal. Never test keys, never placeholders. |
-| [`security-hardening-wizard`](./skills/security-hardening-wizard) | ✅ Stable | Scans every file in a project — any extension, not just source code — for real vulnerabilities, fixes each one for real via CLI, hardens the live deployed backend/site, and produces a verified markdown audit report. Works standalone or as a follow-up to `backend-setup-wizard`. |
-| [`frontend-ui-ux-wizard`](./skills/frontend-ui-ux-wizard) | ✅ Stable | Designs and builds real, production-ready websites — full site scope (home, about, contact, pricing, real privacy/terms pages), a real design-token system, deliberate font pairing, real product screenshots via Playwright — then checks the build, pushes to GitHub, and deploys it live. |
+| [`backend-setup-wizard`](./skills/backend-setup-wizard) | ✅ Stable | Provisions, configures, and deploys real, live backends and third-party services entirely via CLI. Zero-knowledge credential handling — the agent never sees, types, or reads the raw key; auth via OAuth/CLI-login, OS-level secret managers (Keychain/Credential Manager/secret-tool), or the user's own terminal. Never test keys, never placeholders. |
+| [`security-hardening-wizard`](./skills/security-hardening-wizard) | ✅ Stable | Scans every file in a project — any extension — for real vulnerabilities, reports everything in plain language, and fixes **only what the user explicitly approves** — no silent changes, even ones that look obviously safe. Deferred decisions get a clearly-logged recommended fix. Re-verifies with a forced-fresh scan before marking anything done. Safe for a real company's production codebase. |
+| [`frontend-ui-ux-wizard`](./skills/frontend-ui-ux-wizard) | ✅ Stable | Designs and builds real, production-ready websites — full site scope, real design tokens, deliberate fonts — pulling components from an internal library plus React Bits/21st.dev MCP servers when they fit (always restyled, never left default), tests every page across desktop/tablet/mobile via Playwright MCP, then checks the build, pushes to GitHub, and deploys live. |
 | [`skill-router`](./skills/skill-router) | ✅ Stable | Checks every installed skill — from any publisher, not just this repo — for relevance before starting substantive work, so a matching skill doesn't get silently skipped just because a request didn't use its exact trigger words. Pair with [ALWAYS-ON-SETUP.md](./ALWAYS-ON-SETUP.md) for the closest thing to guaranteed coverage. |
 
 **Status key:** ✅ Stable — used and working · 🧪 Beta — functional, still being refined · 📝 Planned — not built yet
 
-More are coming when I need them for my own projects (mainly [Qofeno](https://qofeno.com)) — I build these because I actually use them, not the other way around. Check [open issues](https://github.com/SohailKhan0525/skills/issues) for what's planned, or [request one](./.github/ISSUE_TEMPLATE/skill_request.md) if there's a gap you keep hitting.
+More are coming when I need them for my own projects (mainly [Qofeno](https://qofeno.com)) — I build these because I actually use them, not the other way around. Check [open issues](https://github.com/Qofeno/skills/issues) for what's planned, or [request one](./.github/ISSUE_TEMPLATE/skill_request.md) if there's a gap you keep hitting.
 
 ## Why "no stand-ins"
 

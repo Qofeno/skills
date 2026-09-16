@@ -8,7 +8,7 @@ By default, an agent decides whether to load a skill by matching your request ag
 Install the router along with the rest:
 
 ```bash
-npx skills add SohailKhan0525/skills --skill skill-router
+npx skills add Qofeno/skills --skill skill-router
 ```
 
 Then add the matching snippet for your tool:
