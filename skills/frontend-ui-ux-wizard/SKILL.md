@@ -23,7 +23,7 @@ Before designing anything, ask the user for:
 
 1. **What the site is for** — product/brand, target audience, the core thing a visitor should do or feel.
 2. **Mood/direction** — a few words (minimal, bold, playful, technical, warm, luxury, etc.), and any reference sites they like the *feel* of (see the inspiration note above on how to use these).
-3. **Color preferences** — if they have specific colors/brand colors, use them. If not, propose a palette based on the mood/industry and explain the reasoning (not just "here's blue").
+3. **Color** — ask what colors they like. If they give real preferences, use them. If they don't have any, give a straightforward recommendation with a one-line reason why — that's it, no lengthy back-and-forth needed on this specific question.
 4. **Framework** — ask which they want. If they don't know, recommend **Next.js + React** by default and explain why (production-ready, deploys cleanly to Vercel/similar, pairs with real backend integration) — but build in whatever they actually choose.
 
 **If the request is genuinely unspecified** ("build me a website," nothing else given) — stop and ask what it's actually for before doing anything. Don't guess a generic template and start building; a real answer to "what is this for" changes every subsequent decision in this skill.
@@ -53,7 +53,9 @@ If the site should show a screenshot of the actual product in use (a common hero
 
 ## Step 2 — Build a real design system, not scattered values
 
-Before writing page code, establish actual design tokens the whole site references — not one-off hex codes and magic pixel values sprinkled through components:
+**Before writing any page code, read `references/design-system-values.md`.** This applies every time this skill is used, not just for landing pages or redesigns — it's the structural baseline (type scale, spacing scale, radius formula, motion curve, states, content-realism rules) that everything else in this skill builds on. Font and color specifically come from what the user actually picked in Step 1, not from that file — everything else in it applies regardless.
+
+Beyond that baseline, establish the project-specific tokens the whole site references — not one-off hex codes and magic pixel values sprinkled through components:
 
 - **Color tokens**: a real palette (primary, secondary, neutral scale, semantic colors for success/error/etc.), not just "the one blue they picked."
 - **Type scale**: a deliberate set of sizes/weights/line-heights, not ad-hoc font-sizes per element.

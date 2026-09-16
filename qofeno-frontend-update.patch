@@ -1,0 +1,297 @@
+diff --git a/skills/frontend-ui-ux-wizard/SKILL.md b/skills/frontend-ui-ux-wizard/SKILL.md
+index 57ae7ef..ce48182 100644
+--- a/skills/frontend-ui-ux-wizard/SKILL.md
++++ b/skills/frontend-ui-ux-wizard/SKILL.md
+@@ -23,7 +23,7 @@ Before designing anything, ask the user for:
+ 
+ 1. **What the site is for** — product/brand, target audience, the core thing a visitor should do or feel.
+ 2. **Mood/direction** — a few words (minimal, bold, playful, technical, warm, luxury, etc.), and any reference sites they like the *feel* of (see the inspiration note above on how to use these).
+-3. **Color preferences** — if they have specific colors/brand colors, use them. If not, propose a palette based on the mood/industry and explain the reasoning (not just "here's blue").
++3. **Color** — ask what colors they like. If they give real preferences, use them. If they don't have any, give a straightforward recommendation with a one-line reason why — that's it, no lengthy back-and-forth needed on this specific question.
+ 4. **Framework** — ask which they want. If they don't know, recommend **Next.js + React** by default and explain why (production-ready, deploys cleanly to Vercel/similar, pairs with real backend integration) — but build in whatever they actually choose.
+ 
+ **If the request is genuinely unspecified** ("build me a website," nothing else given) — stop and ask what it's actually for before doing anything. Don't guess a generic template and start building; a real answer to "what is this for" changes every subsequent decision in this skill.
+@@ -53,7 +53,9 @@ If the site should show a screenshot of the actual product in use (a common hero
+ 
+ ## Step 2 — Build a real design system, not scattered values
+ 
+-Before writing page code, establish actual design tokens the whole site references — not one-off hex codes and magic pixel values sprinkled through components:
++**Before writing any page code, read `references/design-system-values.md`.** This applies every time this skill is used, not just for landing pages or redesigns — it's the structural baseline (type scale, spacing scale, radius formula, motion curve, states, content-realism rules) that everything else in this skill builds on. Font and color specifically come from what the user actually picked in Step 1, not from that file — everything else in it applies regardless.
++
++Beyond that baseline, establish the project-specific tokens the whole site references — not one-off hex codes and magic pixel values sprinkled through components:
+ 
+ - **Color tokens**: a real palette (primary, secondary, neutral scale, semantic colors for success/error/etc.), not just "the one blue they picked."
+ - **Type scale**: a deliberate set of sizes/weights/line-heights, not ad-hoc font-sizes per element.
+diff --git a/skills/frontend-ui-ux-wizard/references/design-system-values.md b/skills/frontend-ui-ux-wizard/references/design-system-values.md
+new file mode 100644
+index 0000000..7ced8e7
+--- /dev/null
++++ b/skills/frontend-ui-ux-wizard/references/design-system-values.md
+@@ -0,0 +1,76 @@
++# Design System Values
++
++The concrete, non-negotiable values everything else in this skill resolves to — instead of inventing a font size, spacing number, or easing curve ad hoc each time. `landing-page-playbook.md` and `redesign-audit-checklist.md` both point here rather than restating these.
++
++**Font and color are the exception** — those come from Step 1's actual conversation with the user (their brand, their mood, their palette), not a fixed universal choice. Everything else below is structural and applies regardless of what the user picks.
++
++## Type scale
++
++Resolve every font size to a real scale — never a one-off value like `text-[19px]` or `font-size: 22px`. If an existing/found size doesn't land exactly on a step, snap to the closest step *below* it, and take that step's paired line height with it (don't mix a snapped size with an independently-set custom line height — that just reintroduces the same drift this scale exists to prevent).
++
++| Size | Line height |
++|---|---|
++| 12px | 16px |
++| 14px | 20px |
++| 16px | 24px |
++| 18px | 28px |
++| 20px | 28px |
++| 24px | 32px |
++| 30px | 36px |
++| 36px | 40px |
++| 48px | 1 (tight) |
++| 60px | 1 |
++| 72px | 1 |
++| 96px | 1 |
++
++Main buttons: 16px, semibold. Secondary/header buttons: 14px, semibold.
++
++## Spacing scale
++
++Only these values — nothing invented between or outside them: `0, 2, 4, 8, 12, 16, 24, 32, 40, 48, 64, 80, 96` (px). Every margin, padding, and gap resolves to one of these. Main buttons: 8px vertical padding, 12px horizontal.
++
++## Corner radius — nested formula
++
++Use the framework's standard radius scale, not arbitrary pixel values. When a shape sits inside another and the gap between them is **under 32px**: `inner radius = outer radius − gap`, applied only when the result is **greater than 2** — otherwise leave the inner shape square. (Example: a 16px outer card with 8px internal padding gives the inner element an 8px radius.)
++
++## Motion
++
++Never a default/instant transition (`ease`, `linear`). Baseline for real transitions: `transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]` — real weight, simulating actual mass/spring physics, not a mechanical linear move. Micro-interactions (color shifts, small hover states) can run shorter but never below ~200ms and never on a default curve.
++
++Scroll-triggered reveals: elements enter with a heavy fade-up — `translate-y-16 blur-md opacity-0` resolving to `translate-y-0 blur-0 opacity-100` over 800ms+. Implement via `IntersectionObserver` (or the framework's built-in viewport-trigger, e.g. Framer Motion's `whileInView`) — **never** a raw `window.addEventListener('scroll')`, which causes continuous reflow and wrecks mobile performance.
++
++Animate `transform`/`opacity` for anything performance-sensitive — never animate `top`/`left`/`width`/`height` directly (forces layout, not GPU-accelerated).
++
++## Borders and backgrounds
++
++- Borders go all the way around an element or not at all — never a single-sided border, it reads as accidental.
++- Backgrounds are flat — no linear/radial/mesh gradients on background surfaces. The one exception: a gradient directly on hero heading *text* is fine (see below) — that's a deliberate, specific move, not a general background treatment.
++- Tint shadows toward the background hue rather than using pure black at low opacity — a flat gray shadow reads as generic.
++
++## Hero heading treatment
++
++A left-to-right gradient on the heading text specifically (not the background): light text fading toward mid-gray on a dark theme, dark text fading toward mid-gray on a light theme. Cap the hero heading and subheading at roughly 680px max-width, and break lines at points where the *thought* actually breaks, not just wherever the text happens to wrap.
++
++## Icons
++
++Prefer a considered icon set (e.g. Phosphor, Solar, Iconamoon) over the default that ships with whatever UI kit is in use — the most common tell of an unconsidered build is Lucide/Feather/Material Icons used purely because they're the framework default, not because anyone chose them. Standardize on one stroke weight throughout.
++
++## The "fluid island" nav pattern (use when it fits the project's mood)
++
++Not mandatory for every site, but a strong, distinctive default when nothing more specific is called for: a floating pill-shaped nav detached from the very top of the viewport (`margin-top`, centered, `width: max-content`, fully rounded) rather than a full-width docked bar. On mobile, the hamburger icon's lines should genuinely rotate/translate into an X (never just swap icons or vanish), and the expanded menu should be a heavy-blur full-screen overlay with nav links staggering in one at a time, not a plain dropdown.
++
++## States — every interactive element needs all of these
++
++Hover (subtle shift/scale), active/pressed (`scale(0.98)` or similar physical feedback), focus (a real visible ring — accessibility requirement, not optional), loading (skeleton shaped like the real layout, not a generic spinner), empty (a composed "getting started" view, not a blank panel), error (inline and specific, never a raw `alert()`). No dead links — a button pointing at `#` gets either a real destination or a visibly-disabled state. The current nav item should be visually indicated.
++
++## Content realism (ties directly to `SKILL.md`'s "No stand-ins" rule)
++
++- No Lorem Ipsum, ever — real draft copy instead.
++- No generic placeholder names ("John Doe") or placeholder company names ("Acme Corp," "Nexus") — invent something specific and contextual, or use the user's real names/brands if given.
++- No suspiciously round fake numbers (`99.99%`, `50%`, `$100.00`) — organic-looking figures read as real (`47.2%`, `$99.00`) and shouldn't be fabricated as fact either; only use real numbers the user provides.
++- Avoid the specific tells of AI-generated copy: "Elevate," "Seamless," "Unleash," "Next-gen," "Game-changer," "Delve," "Tapestry," "In the world of..." — write plain, specific language instead.
++- Sentence case in headers, not Title Case Everywhere. Active voice ("we couldn't save your changes," not "mistakes were made"). No exclamation marks in success states; error messages are direct ("Connection failed. Please try again"), not a cutesy "Oops!"
++
++## Ship checklist — easy to forget, breaks the "real, complete site" bar if missing
++
++Custom branded 404, client-side form validation (email format, required fields), a skip-to-content link for keyboard users, cookie consent where the jurisdiction requires it, a real favicon, `<title>` + meta description + `og:image` + social tags on every page, alt text on every meaningful image, semantic HTML (`<nav>`, `<main>`, `<article>`, `<aside>`, `<section>` — not div soup), and a way back to the rest of the site from every page.
+diff --git a/skills/frontend-ui-ux-wizard/references/landing-page-playbook.md b/skills/frontend-ui-ux-wizard/references/landing-page-playbook.md
+index aa82e8b..d949a1f 100644
+--- a/skills/frontend-ui-ux-wizard/references/landing-page-playbook.md
++++ b/skills/frontend-ui-ux-wizard/references/landing-page-playbook.md
+@@ -1,41 +1,64 @@
+ # Landing Page Playbook
+ 
+-Use this when the project is specifically a landing/marketing page (not a full app). Consult this alongside the design-token and component-library steps in `SKILL.md` — it doesn't replace them.
++Use this when the project is specifically a landing/marketing page (not a full app). Consult this alongside `design-system-values.md` and the component-library steps in `SKILL.md` — none of these replace each other.
++
++A landing page is not a homepage — a homepage serves many intents, a landing page wins exactly one: one offer, one audience, one primary action.
+ 
+ ## Before designing: get the real inputs
+ 
+-Beyond what `SKILL.md` Step 1 already asks (purpose, mood, colors, framework), a landing page specifically needs:
++Beyond what `SKILL.md` Step 1 already asks (purpose, mood, colors, framework), a landing page specifically needs, gathered in one batch rather than one question at a time:
++
++- **The one action a visitor should take**, and what exactly counts as a conversion (a click, a signup, a purchase). Multiple competing CTAs dilute conversion; know the one real goal before laying out sections.
++- **Who's actually landing there and from where** — cold ad traffic needs more context-building than a warm referral visitor who already knows the brand. If there's a specific ad/campaign this page is matching, the hero should mirror that ad's headline and promise, not introduce a new angle.
++- **The top real objection** stopping people from converting today — this shapes which section carries the most weight.
++- **What real proof exists** — logos, testimonials, numbers, case studies, screenshots, demo video. If none exist yet, plan around that honestly (see Content realism in `design-system-values.md`) rather than inventing some.
++- **Risk reversal available** — free trial, free plan, no credit card required, cancel anytime, money-back guarantee. At least one of these meaningfully lowers conversion friction if it's genuinely on offer.
++
++If the user can't answer something, make a reasonable stated assumption and keep moving rather than stalling the build on every unanswered question — but state the assumption plainly so it can be corrected.
++
++## Layout type — pick one deliberately, don't default blindly
++
++| Type | Use when |
++|---|---|
++| **Classic hero + sections** | Product is understandable from a hero screenshot alone — the most common fit |
++| **Long-form story** | Real skepticism to overcome, needs education before the ask |
++| **Minimal conversion page** | High-intent traffic (a known warm list), or a short single offer like a download/waitlist |
++| **Comparison page** | Search intent includes alternatives ("X vs Y," "best for Z") |
+ 
+-- **The one action a visitor should take.** A landing page earns its keep on a single primary conversion goal — sign up, book a call, buy, download. If the user hasn't said what it is, ask. Multiple competing CTAs dilute conversion; know the *one* thing before laying out sections.
+-- **Who's actually landing there.** Cold traffic from an ad needs more context and trust-building than a visitor who already knows the brand from a referral. This changes how much explaining the page needs to do before asking for the click.
+-- **What objection is most likely to stop someone.** Price, trust, "will this actually work for me" — knowing the real objection shapes which section carries the most weight (a testimonials/social-proof section matters more when trust is the objection; a comparison section matters more when the objection is "why you over the alternative").
++## Structure — order sections around the real objection, not a fixed template
+ 
+-## Structure — order sections around the objection, not a template
++A reasonable default order, adapted per the actual objection and layout type above — not filled in on autopilot:
+ 
+-A reasonable default order — but treat it as a starting point to adapt, not a fixed template to fill in on autopilot:
++1. **Hero** — the core value proposition in one clear sentence, the primary CTA, one real proof signal if available (logo strip, stat, short testimonial).
++2. **Problem → solution** — the core argument, sized to how much convincing is actually needed.
++3. **Benefits** (three to five, outcome-driven, not just a feature list) and **how it works** (roughly three steps).
++4. **A tagline-reveal moment** — see below; place it after the hero or after benefits, as its own distinct moment rather than stacked directly under the hero.
++5. **Social proof** — testimonials/case studies, only if real ones exist.
++6. **FAQ** (six to twelve real questions) — handles remaining objections; move this earlier in the page for high-friction/high-consideration offers.
++7. **Final CTA**, often echoing the primary one, sometimes with lower-friction framing depending on funnel stage.
+ 
+-1. **Hero** — the core value proposition in one clear sentence, plus the primary CTA. A visitor should understand what this is and what to do within seconds, not after scrolling.
+-2. **Social proof or credibility signal** — only if real proof exists (see Content realism below). Skip this section entirely rather than fabricate it.
+-3. **How it works / core value** — the meat of the page, addressing the specific objection identified above.
+-4. **Detail/features section** — supporting points, not a burial ground for every possible feature. Prioritize what actually moves the primary objection.
+-5. **Final CTA** — repeat the primary action, often with a lower-friction framing (e.g. "start free" rather than "buy now") if that fits the funnel stage.
++Not every page needs every section — a known, trusted brand's simple signup might skip heavy objection-handling entirely.
+ 
+-Not every landing page needs every section — a page for a known, trusted brand's simple signup might skip heavy objection-handling entirely and go hero → CTA. Match structure to the actual visitor and objection, don't pad the page to look "complete."
++## The tagline-reveal section (a genuinely distinctive pattern worth using deliberately)
++
++One section, separate from the hero, stating the core benefit or tagline as its own large-type moment — not a generic section heading. Two or more lines, capped to a max-width like the hero so lines break at meaningful points. As it scrolls into view, each word transitions from a muted/low-opacity version of the theme's text color to full color, one at a time in reading order (not the whole block fading at once) — implemented via `IntersectionObserver` per word or a rAF-throttled scroll handler, using the motion easing from `design-system-values.md`, never a raw unthrottled scroll listener.
++
++## Build order
++
++Work section by section in this order, not the whole page at once: hero → benefits → how it works → proof → FAQ → final CTA. Rebuilding the entire page on every iteration makes changes hard to review; section-by-section keeps diffs small and controllable.
+ 
+ ## Conversion copy — specific beats generic
+ 
+-- Headlines should state the actual outcome or value, not an abstract claim. "Ship your backend in an afternoon" beats "The future of backend development."
+-- CTA button text should say what happens next, not just "Submit" — "Start free trial," "Get my quote," "Book a demo."
+-- Avoid stacking adjectives without substance ("revolutionary," "game-changing," "seamless") — if a claim can't be backed by something concrete, cut the adjective and state the concrete thing instead.
++- Headlines state the actual outcome, not an abstract claim: "Ship your backend in an afternoon," not "The future of backend development."
++- CTA button text says what happens next: "Start free trial," "Get my quote," "Book a demo" — never bare "Submit" or "Learn more."
++- Cut adjectives that can't be backed by something concrete ("revolutionary," "seamless") and state the concrete thing instead.
++- See `design-system-values.md`'s Content realism section for the specific fabrication traps to avoid (fake numbers, fake names, AI-cliché phrasing).
++
++## SEO / AEO
+ 
+-## Content realism (ties to `SKILL.md`'s "No stand-ins" rule)
++Don't index ad-only or tightly time-bound campaign pages (`noindex`, or keep them off any indexed path). Do index evergreen offers — real title, real meta description, internal links from the homepage/feature pages, and write the FAQ in genuine plain question-and-answer form so it's usable for AI-answer-engine extraction too, not just human scanning.
+ 
+-- Never invent specific numbers ("10,000+ users," "99.9% uptime") without the user confirming they're real. A vague-but-true claim beats a precise-but-fabricated one.
+-- Never invent testimonial names, quotes, or company logos. If the user has real ones, use them. If not, skip the section or mark it clearly as pending real content — don't placeholder it with "Jane D., CEO" and a stock quote.
+-- Avoid copy that reads as obviously AI-generated boilerplate — generic enthusiasm without specifics is a tell. Specific, concrete language tied to what the product actually does reads as real because it is.
++## Pitfalls worth checking for explicitly
+ 
+-## Visual execution notes
++Too many CTAs above the fold; a vague value prop leaning on "streamline"/"optimize" instead of a real outcome; a long feature list with no stated outcomes; proof buried at the very bottom instead of beside the claims it supports; a mobile layout that technically doesn't overflow but is still hard to actually read; no clear single next step anywhere on the page.
+ 
+-- Give the hero headline real typographic weight — it's the first thing read, and timid sizing undercuts the value proposition before anyone reads a word.
+-- Keep the primary CTA visually distinct from secondary actions (a filled button vs. a text link, not two equally-weighted buttons competing for attention).
+-- Respect the type scale and spacing system from `SKILL.md` Step 2 — a landing page is not an excuse for one-off font sizes per section.
+diff --git a/skills/frontend-ui-ux-wizard/references/redesign-audit-checklist.md b/skills/frontend-ui-ux-wizard/references/redesign-audit-checklist.md
+index 715039e..75f35a3 100644
+--- a/skills/frontend-ui-ux-wizard/references/redesign-audit-checklist.md
++++ b/skills/frontend-ui-ux-wizard/references/redesign-audit-checklist.md
+@@ -1,40 +1,68 @@
+ # Redesign Audit Checklist
+ 
+-Use this when the task is redesigning an **existing** site/project, not building from scratch. The goal is a real diagnosis before real changes — not a guess at what "looks dated."
++Use this when the task is redesigning an **existing** site/project, not building from scratch. This is a diagnostic first — find what's actually wrong, report it, then fix in priority order. Values referenced below (fonts, spacing, radius, motion, icons) resolve through `design-system-values.md` — don't invent a replacement value that isn't there; ask if something genuinely isn't covered.
+ 
+-## Step A — Scan before touching anything
++## How this works
+ 
+-Before proposing any change, actually look at what exists:
++1. **Scan** — read the actual codebase, identify the framework and styling method in use.
++2. **Diagnose** — run the checklist below, list every real pattern found (not assumed ones).
++3. **Report** — same principle as the rest of this skill: tell the user what's wrong and why before changing anything. Let them weigh in on direction, and veto specific items if they want to.
++4. **Fix** — apply targeted upgrades inside the existing stack, in Fix Priority order below. Improve what's there rather than rewriting from scratch, and test after every change so nothing existing breaks.
+ 
+-- Read through the current pages/components as they're built now — don't redesign from a vague impression of "it needs to feel more modern."
+-- Note the current design tokens in use (or lack of a consistent system) — colors, fonts, spacing — so you know what's actually inconsistent versus what's a deliberate existing choice worth keeping.
+-- Check current accessibility basics (contrast, semantic structure, focus states) and note real gaps, not assumed ones.
+-- Check current performance basics (image sizes, unnecessary JS) if relevant to what's being redesigned.
++## Typography smells
+ 
+-## Step B — Diagnose specifically, not generically
++Browser-default fonts or an unconsidered default (used only because it's the framework's out-of-the-box choice, not a deliberate pick); two typefaces on one site without a real reason; italics used for emphasis (use weight/size/color instead); ultra-bold weights (800/900) overused; only Regular+Bold in use with no Medium/SemiBold for finer hierarchy; headlines sized timidly instead of carrying real presence; body paragraphs wider than roughly 65 characters; numbers in a proportional font on data-heavy UI (enable tabular numerals); orphaned single words on their own last line (fix via `text-wrap: balance`/`pretty`); hyphens used inside body copy (rewrite the phrase instead); font sizes that don't land on the real type scale (see `design-system-values.md`) — snap to the nearest step below and take its paired line height.
+ 
+-Turn what was found into specific, named problems — "the type scale has 11 different font sizes with no clear hierarchy" is diagnosable and fixable; "it looks outdated" isn't.
++## Color and surface smells
+ 
+-Common real issues worth checking for specifically:
+-- Inconsistent or absent spacing scale (arbitrary margin/padding values instead of a system)
+-- Low contrast text that fails real accessibility thresholds, not just "looks a bit light"
+-- A visual hierarchy that doesn't match actual content priority (the least important thing is the biggest, or vice versa)
+-- Layout that breaks or feels unconsidered at mobile widths, not just "responsive" in the sense of not literally overflowing
+-- Generic, interchangeable-with-any-other-site visual identity — no distinctive color, type, or layout choice tying it to the specific brand
++Background colors that drift outside a deliberately chosen, consistent set; any gradient used on a background surface (flat only — the one exception is hero heading *text*, see `design-system-values.md`); the specific "purple/blue AI gradient" look — a strong tell of an unconsidered build, worth naming explicitly when spotted; oversaturated accent colors screaming instead of sitting with the neutrals; more than one accent color competing; warm and cool grays mixed inconsistently; generic flat-black box-shadows instead of shadows tinted toward the background hue; flat, textureless surfaces (subtle noise/grain can help — don't reach for a gradient to fix flatness); an inconsistent shadow direction implying multiple light sources; a jarring dark section dropped into an otherwise light page (or the reverse) with no transition; empty sections with no visual depth.
+ 
+-## Step C — Report the diagnosis before redesigning
++## Layout smells
+ 
+-Same principle as the rest of this skill's build process: tell the user what's actually wrong and why, with specifics, before changing anything wholesale. A redesign the user didn't get to weigh in on the direction of is a bigger risk than a slow one they actually agreed with.
++Everything centered and perfectly symmetrical with no intentional asymmetry; three equal-width card columns as the default feature-row layout (extremely common, reads as generic — a zig-zag, asymmetric grid, or horizontal scroll usually serves the same content better); `height: 100vh` on full-screen sections (use `min-height: 100dvh` to avoid iOS Safari's viewport jump); complex flexbox percentage math where CSS Grid would be simpler; no max-width container (roughly 1200–1440px with auto margins is a reasonable default; cap hero heading/subheading narrower, around 680px); cards force-equalized to the same height when content length actually varies (allow variable height or use masonry); spacing values invented ad hoc instead of resolving to the spacing scale; a radius chosen by feel instead of the nested-radius formula; no overlap/layering anywhere (flat elements sitting beside each other with zero depth); symmetrical vertical padding where optical balance actually wants slightly more at the bottom; CTAs in a card group not bottom-aligned into one clean line; feature/pricing list items starting at inconsistent vertical positions across columns; misaligned baselines across side-by-side elements reading as broken rather than intentional.
+ 
+-## Step D — Fix in priority order, not everything at once
++## Interactivity and states smells
+ 
+-Once there's agreement on direction:
+-1. Fix the design-token system first (colors, type scale, spacing) — everything downstream depends on this being consistent.
+-2. Fix structural/layout issues next (hierarchy, responsive behavior).
+-3. Polish (motion, micro-interactions, refinement) last — these matter, but they're not worth doing before the foundation is solid.
++Default or instant transitions (`ease`, `linear`) instead of the real motion curve in `design-system-values.md`; content appearing statically on scroll instead of a real fade-up reveal; `window.addEventListener('scroll')` used for reveals (replace with `IntersectionObserver`); a standard full-width docked navbar where a more considered pattern would fit better; a hamburger icon that swaps or vanishes instead of genuinely morphing into an X; a mobile menu that's just a plain dropdown; no hover state on interactive elements; no active/pressed feedback; a missing focus ring (accessibility requirement, not a style choice); a spinner instead of a layout-shaped skeleton loader; no designed empty state; no inline error state (or a raw `alert()`); dead links pointing at `#`; no current-page indicator in nav; no smooth-scroll on anchor navigation; layout-triggering properties (`top`/`left`/`width`/`height`) animated instead of `transform`/`opacity`.
+ 
+-Don't skip straight to polish on top of an inconsistent foundation — it'll look better briefly and reveal the same underlying problems the moment someone extends the page.
++## Content smells
+ 
+-## Step E — Preserve what actually works
++See `design-system-values.md`'s Content realism section for the full list (fake names, fake round numbers, placeholder brand names, AI-cliché phrasing, Title Case overuse, passive voice, exclamation-mark success states, "Oops!" errors) — all of it applies here too, since a redesign audit should catch existing instances of these just as much as a fresh build should avoid introducing them. Also check for: vague value props leaning on "streamline"/"optimize" with no real outcome stated; features listed with no stated benefit; weak CTA copy ("Learn more," "Submit"); competing CTAs above the fold; proof/testimonials buried far from the claims they support; no risk-reversal offer anywhere; identical dates across blog posts; the same avatar reused for multiple people.
+ 
+-A redesign isn't a rebuild from zero. If something in the existing design is genuinely effective (clear navigation, a working conversion flow, brand elements the user is attached to for good reason), keep it — changing something isn't inherently an improvement. Call out explicitly what's being kept and why, not just what's changing.
++## Component pattern smells
++
++The generic "border + shadow + white background" card treatment used everywhere by default; a border on only one side of a card; the reflexive "one filled button + one ghost button" pairing on every CTA pair; pill-shaped "New"/"Beta" badges as the unconsidered default; a plain accordion FAQ when the question volume/context would suit a searchable or side-by-side pattern better; a three-card carousel with dots for testimonials; a three-tier pricing table with no visual emphasis on the recommended tier; a modal used for something that would work better as inline editing or a slide-over; avatar circles used exclusively with no variation; a literal sun/moon toggle for light/dark instead of a settings entry or system-preference detection; a four-column footer link farm that could simplify to main paths plus what's legally required.
++
++## Iconography and imagery smells
++
++The default icon set that ships with whatever UI kit is in use, kept only because nobody chose otherwise; cliché icon-metaphors (a rocket for "launch," a shield for "security") where something more specific would communicate better; inconsistent stroke widths across icons; a missing or generic favicon; stock "diverse team" photography instead of real images or a consistent illustration style.
++
++## Code quality smells
++
++"Div soup" instead of real semantic HTML (`<nav>`, `<main>`, `<article>`, `<aside>`, `<section>`); inline styles mixed inconsistently with the project's actual styling system; hardcoded pixel widths where `%`/`rem`/`max-width` would hold up better across viewports; missing or generic (`alt="image"`) alt text; an arbitrary z-index value instead of a real stacking scale; commented-out dead code left in; an import that doesn't actually exist in the project's dependencies (verify before assuming); missing meta tags (`<title>`, description, `og:image`, social tags).
++
++## Strategic omissions — what redesigns typically forget entirely
++
++No legal links (privacy/terms) in the footer; no way back to the rest of the site from a given page; no custom 404; no client-side form validation; no skip-to-content link for keyboard users; no cookie consent where the jurisdiction requires one; landing/campaign pages with no indexing decision made at all (ad-only pages should be `noindex`; evergreen pages need real title/meta/FAQ content for both SEO and AI-answer-engine retrieval).
++
++## Fix priority — maximum visible impact, minimum risk, in this order
++
++1. **Font pairing** — usually the single biggest visible improvement for the lowest risk.
++2. **Color and surface cleanup** — snap to a deliberate, consistent palette; remove background gradients.
++3. **Hover/active/focus states** — makes the interface feel alive with low structural risk.
++4. **Layout and spacing** — grid, max-width, the spacing scale, the nested-radius formula.
++5. **Motion pass** — real easing curves, scroll reveals via `IntersectionObserver`.
++6. **Replace generic component patterns** — swap the clichés identified above for something more considered.
++7. **Loading/empty/error states** — makes the whole thing feel finished rather than half-built.
++8. **Copy pass** — cut clichés, add specificity, fix weak CTAs.
++9. **Type-scale polish** — the last, smallest-impact pass, worth doing once everything else is solid.
++
++Don't skip ahead to polish (step 9) on top of an inconsistent foundation (steps 1–4) — it'll look marginally better briefly and the same underlying problems will resurface the moment anyone extends the page.
++
++## Rules specific to redesign work
++
++- Work within the existing tech stack — don't migrate frameworks or styling libraries as part of a redesign task.
++- Test after every change; don't break existing functionality for a visual improvement.
++- Check the project's actual dependency file before importing anything new.
++- Keep changes small and reviewable — targeted improvements over a wholesale rewrite.
++- **Preserve what actually works.** If something in the existing design is genuinely effective (a working conversion flow, navigation people already understand, brand elements the user is attached to for good reason), keep it and say explicitly why — a redesign isn't inherently an improvement just because something changed.
