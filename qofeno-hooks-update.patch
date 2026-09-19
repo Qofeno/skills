@@ -1,0 +1,318 @@
+diff --git a/ALWAYS-ON-SETUP.md b/ALWAYS-ON-SETUP.md
+index bbd8ed6..389160d 100644
+--- a/ALWAYS-ON-SETUP.md
++++ b/ALWAYS-ON-SETUP.md
+@@ -43,6 +43,38 @@ Before substantive work on any request, check all installed skills (any publishe
+ 
+ Same idea — find whatever file that tool loads automatically at session start, and add the same "check all installed skills before proceeding" instruction.
+ 
++## Frontend design values — a stronger mechanism, where it actually exists
++
++`frontend-ui-ux-wizard` ships real hook scripts (not just instructions) that force-inject `design-system-values.md` into context right before a frontend file gets written — bypassing the model's discretion about whether to open the reference file at all. This only works where the host tool has a real hook API to build against:
++
++| Tool | Force-injection available? | Notes |
++|---|---|---|
++| **Claude Code** | ✅ Yes, tested and working | `PreToolUse` hook |
++| **Cursor 1.7+** | ⚠️ Mechanism exists, currently buggy | Cursor has an open, acknowledged bug where injected context isn't always surfaced to the model — install it anyway, it should start working once fixed |
++| **Codex, Antigravity, OpenCode, Windsurf, GitHub Copilot** | ❌ No hooks API for context injection yet | The instruction-file approach above is the real lever for these — there's no stronger option available today |
++
++**Claude Code setup** — add to your project's `.claude/settings.json`:
++
++```json
++{
++  "hooks": {
++    "PreToolUse": [
++      {
++        "matcher": "Write|Edit",
++        "hooks": [
++          {
++            "type": "command",
++            "command": "bash .claude/skills/frontend-ui-ux-wizard/hooks/claude-code/inject-design-values.sh"
++          }
++        ]
++      }
++    ]
++  }
++}
++```
++
++**Cursor setup** — copy `skills/frontend-ui-ux-wizard/hooks/cursor/hooks.json` to `.cursor/hooks.json` in your project, and make sure `hooks/cursor/inject-design-values.sh` is executable (`chmod +x`).
++
+ ## Why this isn't 100% automatic
+ 
+ A skill is something an agent *can* reach for, not something that reaches into every conversation unconditionally — that's intentional, so skills don't fire on requests they have nothing to do with. `skill-router`'s broad trigger plus a persistent context file are the two real levers available; together they get close to "always check," but neither one alone is a hard guarantee, and no combination is 100% enforceable at the skill-package level — that would require the host tool itself to change how it triggers skills.
+diff --git a/skills/frontend-ui-ux-wizard/hooks/claude-code/inject-design-values.sh b/skills/frontend-ui-ux-wizard/hooks/claude-code/inject-design-values.sh
+new file mode 100755
+index 0000000..938b780
+--- /dev/null
++++ b/skills/frontend-ui-ux-wizard/hooks/claude-code/inject-design-values.sh
+@@ -0,0 +1,59 @@
++#!/usr/bin/env bash
++# Claude Code PreToolUse hook — force-injects Qofeno's design-system-values.md
++# into context right before a frontend file gets written or edited, so the
++# rules apply even if the agent never chose to open the reference file itself.
++#
++# This bypasses model discretion entirely: hook output is injected
++# deterministically by the Claude Code harness, not left to the agent's
++# judgment about whether to read a reference file.
++#
++# Install: see ../../../../ALWAYS-ON-SETUP.md for the settings.json wiring.
++
++set -euo pipefail
++
++INPUT=$(cat)
++FILE_PATH=$(echo "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
++
++# Only fire for files this skill actually governs.
++case "$FILE_PATH" in
++  *.tsx|*.jsx|*.css|*.scss|*.html|*.vue|*.svelte) ;;
++  *) exit 0 ;;
++esac
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++VALUES_FILE="$SCRIPT_DIR/../../references/design-system-values.md"
++
++if [ ! -f "$VALUES_FILE" ]; then
++  exit 0
++fi
++
++# Only inject once per session — track via a marker file in Claude's session
++# temp dir so this doesn't re-inject on every single file write.
++MARKER_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude/.qofeno-hook-state"
++MARKER_FILE="$MARKER_DIR/design-values-injected-${CLAUDE_SESSION_ID:-default}"
++mkdir -p "$MARKER_DIR" 2>/dev/null || true
++
++if [ -f "$MARKER_FILE" ]; then
++  exit 0
++fi
++touch "$MARKER_FILE" 2>/dev/null || true
++
++VALUES_CONTENT=$(cat "$VALUES_FILE")
++
++# Claude Code hook output contract: JSON on stdout with
++# hookSpecificOutput.additionalContext carries text into the model's context.
++# Read the file directly in Python rather than interpolating shell content
++# into a Python string literal — avoids any quoting/escaping fragility.
++VALUES_FILE_ABS="$VALUES_FILE" python3 -c "
++import json, os
++
++with open(os.environ['VALUES_FILE_ABS'], 'r', encoding='utf-8') as f:
++    content = f.read()
++
++print(json.dumps({
++    'hookSpecificOutput': {
++        'hookEventName': 'PreToolUse',
++        'additionalContext': 'QOFENO DESIGN VALUES (frontend-ui-ux-wizard) — apply these before writing this file:\n\n' + content
++    }
++}))
++"
+diff --git a/skills/frontend-ui-ux-wizard/hooks/cursor/hooks.json b/skills/frontend-ui-ux-wizard/hooks/cursor/hooks.json
+new file mode 100644
+index 0000000..68be785
+--- /dev/null
++++ b/skills/frontend-ui-ux-wizard/hooks/cursor/hooks.json
+@@ -0,0 +1,10 @@
++{
++  "version": 1,
++  "hooks": {
++    "afterFileEdit": [
++      {
++        "command": "bash ${workspaceFolder}/.claude/skills/frontend-ui-ux-wizard/hooks/cursor/inject-design-values.sh"
++      }
++    ]
++  }
++}
+diff --git a/skills/frontend-ui-ux-wizard/hooks/cursor/inject-design-values.sh b/skills/frontend-ui-ux-wizard/hooks/cursor/inject-design-values.sh
+new file mode 100755
+index 0000000..76c3027
+--- /dev/null
++++ b/skills/frontend-ui-ux-wizard/hooks/cursor/inject-design-values.sh
+@@ -0,0 +1,49 @@
++#!/usr/bin/env bash
++# Cursor afterFileEdit hook — force-injects design-system-values.md.
++#
++# KNOWN CAVEAT (as of this writing): Cursor has an open, acknowledged bug
++# where a hook's additional_context field is logged correctly in Cursor's
++# own Hooks panel but isn't reliably surfaced to the model. This hook is
++# still worth installing — the mechanism is real and likely to be fixed —
++# but don't treat it as a guarantee the way the Claude Code version is.
++# Until that's fixed, the instruction-file approach in ALWAYS-ON-SETUP.md
++# is the more dependable lever for Cursor specifically.
++
++set -euo pipefail
++
++INPUT=$(cat)
++FILE_PATH=$(echo "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
++
++case "$FILE_PATH" in
++  *.tsx|*.jsx|*.css|*.scss|*.html|*.vue|*.svelte) ;;
++  *) exit 0 ;;
++esac
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++VALUES_FILE="$SCRIPT_DIR/../../references/design-system-values.md"
++
++if [ ! -f "$VALUES_FILE" ]; then
++  exit 0
++fi
++
++MARKER_DIR="${PWD}/.cursor/.qofeno-hook-state"
++MARKER_FILE="$MARKER_DIR/design-values-injected"
++mkdir -p "$MARKER_DIR" 2>/dev/null || true
++
++if [ -f "$MARKER_FILE" ]; then
++  exit 0
++fi
++touch "$MARKER_FILE" 2>/dev/null || true
++
++# Cursor's hook schema uses a top-level snake_case additional_context field
++# (not nested like Claude Code's hookSpecificOutput.additionalContext).
++VALUES_FILE_ABS="$VALUES_FILE" python3 -c "
++import json, os
++
++with open(os.environ['VALUES_FILE_ABS'], 'r', encoding='utf-8') as f:
++    content = f.read()
++
++print(json.dumps({
++    'additional_context': 'QOFENO DESIGN VALUES (frontend-ui-ux-wizard) — apply these before writing this file:\n\n' + content
++}))
++"
+diff --git a/skills/frontend-ui-ux-wizard/references/design-system-values.md b/skills/frontend-ui-ux-wizard/references/design-system-values.md
+index 7ced8e7..a4f4f8c 100644
+--- a/skills/frontend-ui-ux-wizard/references/design-system-values.md
++++ b/skills/frontend-ui-ux-wizard/references/design-system-values.md
+@@ -1,76 +1,88 @@
+-# Design System Values
++# Design Values
+ 
+-The concrete, non-negotiable values everything else in this skill resolves to — instead of inventing a font size, spacing number, or easing curve ad hoc each time. `landing-page-playbook.md` and `redesign-audit-checklist.md` both point here rather than restating these.
++The single source of truth this whole skill resolves to. Never invent a font, hex value, spacing number, radius, or easing curve that isn't here. If a situation isn't covered here, ask rather than guessing.
+ 
+-**Font and color are the exception** — those come from Step 1's actual conversation with the user (their brand, their mood, their palette), not a fixed universal choice. Everything else below is structural and applies regardless of what the user picks.
++**The one deviation from a fixed design system: accent/brand color is chosen by the user in Step 1, not fixed here.** Fonts, background grays, and the hero gradient are fixed values below and apply regardless of what the user picks for their accent color — that's deliberate, so every Qofeno-built site still has a consistent structural quality bar even as brand color varies project to project.
+ 
+-## Type scale
++**Fonts:** Geist, Manrope, Geist Mono, Poppins. Never Inter, Roboto, Arial, Open Sans, Helvetica. No italics anywhere in the interface. No weights above bold (cap at semibold/bold — never 800/900/black). One typeface per site — don't pair two unless the project brief explicitly calls for it. Geist Mono is allowed alongside a primary font only for code, data, or numeric UI where a monospace is functionally required.
++
++**Dark backgrounds:** `#000000` · `#181818` · `#1F1F1F` · `#272727` · `#313131` · `#131209`
+ 
+-Resolve every font size to a real scale — never a one-off value like `text-[19px]` or `font-size: 22px`. If an existing/found size doesn't land exactly on a step, snap to the closest step *below* it, and take that step's paired line height with it (don't mix a snapped size with an independently-set custom line height — that just reintroduces the same drift this scale exists to prevent).
++**Hero heading gradient:** dark theme `#FFFFFF` → `#9B9B9B`; light theme `#000000` → `#666666`. Left to right, on heading text only — this is the one place a gradient is used; everything else stays flat.
+ 
+-| Size | Line height |
+-|---|---|
+-| 12px | 16px |
+-| 14px | 20px |
+-| 16px | 24px |
+-| 18px | 28px |
+-| 20px | 28px |
+-| 24px | 32px |
+-| 30px | 36px |
+-| 36px | 40px |
+-| 48px | 1 (tight) |
+-| 60px | 1 |
+-| 72px | 1 |
+-| 96px | 1 |
++**Spacing:** 0, 2, 4, 8, 12, 16, 24, 32, 40, 48, 64, 80, 96px — nothing invented between or outside these. Main buttons: 8px vertical padding, 12px horizontal padding.
+ 
+-Main buttons: 16px, semibold. Secondary/header buttons: 14px, semibold.
++**Radius:** Use the framework's standard radius scale, never an arbitrary pixel value. Nested shapes where the gap between outer and inner is under 32px: `inner radius = outer radius − gap`, applied only when the result exceeds 2 — otherwise leave the inner shape square.
+ 
+-## Spacing scale
++**Icons:** Phosphor, Solar, Iconamoon. Never Material Icons or Material Symbols, and never Lucide/Feather used purely because they're a framework default rather than a deliberate choice. Standardize on one stroke weight throughout.
+ 
+-Only these values — nothing invented between or outside them: `0, 2, 4, 8, 12, 16, 24, 32, 40, 48, 64, 80, 96` (px). Every margin, padding, and gap resolves to one of these. Main buttons: 8px vertical padding, 12px horizontal.
++**Motion:** `transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]` as the baseline — never a default `ease`/`linear` transition. Micro-interactions may run shorter but never below ~200ms and never on a default curve. Scroll reveals: `translate-y-16 blur-md opacity-0` → `translate-y-0 blur-0 opacity-100` over 800ms or longer, via `IntersectionObserver` (or the framework's built-in viewport trigger, e.g. Framer Motion's `whileInView`) — never a raw `window.addEventListener('scroll')`, which causes continuous reflow and wrecks mobile performance. Animate `transform`/`opacity`, never `top`/`left`/`width`/`height` directly.
+ 
+-## Corner radius — nested formula
++## Type scale
+ 
+-Use the framework's standard radius scale, not arbitrary pixel values. When a shape sits inside another and the gap between them is **under 32px**: `inner radius = outer radius − gap`, applied only when the result is **greater than 2** — otherwise leave the inner shape square. (Example: a 16px outer card with 8px internal padding gives the inner element an 8px radius.)
++Resolve every font size to this scale — never an arbitrary value like `text-[19px]`, `font-size: 22px`, or `1.4rem`. If a size doesn't land exactly on a step, snap to the closest step *below* it, and take that step's paired line height with it. Don't combine a snapped size with an independently-set custom line height elsewhere — adjust tracking/line-height only *within* what the matched step already provides, so the rules don't fight each other.
+ 
+-## Motion
++| Class | Size | Line height |
++|---|---|---|
++| `text-xs` | 12px (0.75rem) | 16px |
++| `text-sm` | 14px (0.875rem) | 20px |
++| `text-base` | 16px (1rem) | 24px |
++| `text-lg` | 18px (1.125rem) | 28px |
++| `text-xl` | 20px (1.25rem) | 28px |
++| `text-2xl` | 24px (1.5rem) | 32px |
++| `text-3xl` | 30px (1.875rem) | 36px |
++| `text-4xl` | 36px (2.25rem) | 40px |
++| `text-5xl` | 48px (3rem) | 1 |
++| `text-6xl` | 60px (3.75rem) | 1 |
++| `text-7xl` | 72px (4.5rem) | 1 |
++| `text-8xl` | 96px (6rem) | 1 |
++| `text-9xl` | 128px (8rem) | 1 |
+ 
+-Never a default/instant transition (`ease`, `linear`). Baseline for real transitions: `transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]` — real weight, simulating actual mass/spring physics, not a mechanical linear move. Micro-interactions (color shifts, small hover states) can run shorter but never below ~200ms and never on a default curve.
++Main buttons: `text-base`, semibold. Header/secondary buttons: `text-sm`, semibold.
+ 
+-Scroll-triggered reveals: elements enter with a heavy fade-up — `translate-y-16 blur-md opacity-0` resolving to `translate-y-0 blur-0 opacity-100` over 800ms+. Implement via `IntersectionObserver` (or the framework's built-in viewport-trigger, e.g. Framer Motion's `whileInView`) — **never** a raw `window.addEventListener('scroll')`, which causes continuous reflow and wrecks mobile performance.
++## Copy rules
+ 
+-Animate `transform`/`opacity` for anything performance-sensitive — never animate `top`/`left`/`width`/`height` directly (forces layout, not GPU-accelerated).
++No hyphens inside text — not in headings, body copy, or labels. Rewrite the phrase instead of using `-` mid-sentence. No orphaned words — a single word must never sit alone on the last line; apply `text-wrap: balance` for headings and `text-wrap: pretty` for body copy.
+ 
+ ## Borders and backgrounds
+ 
+-- Borders go all the way around an element or not at all — never a single-sided border, it reads as accidental.
+-- Backgrounds are flat — no linear/radial/mesh gradients on background surfaces. The one exception: a gradient directly on hero heading *text* is fine (see below) — that's a deliberate, specific move, not a general background treatment.
+-- Tint shadows toward the background hue rather than using pure black at low opacity — a flat gray shadow reads as generic.
++Never a border on only one side of a card — borders go all the way around or not at all. Never a gradient on a background surface — backgrounds are flat; the hero heading text gradient above is the sole exception.
++
++## Hero section layout
++
++Heading and subheading both capped at a max-width of 680px. Read the heading copy and insert line breaks at meaningful points — never break a line in a way that cuts a phrase awkwardly; break where the thought actually breaks.
+ 
+-## Hero heading treatment
++## The fluid island nav pattern
+ 
+-A left-to-right gradient on the heading text specifically (not the background): light text fading toward mid-gray on a dark theme, dark text fading toward mid-gray on a light theme. Cap the hero heading and subheading at roughly 680px max-width, and break lines at points where the *thought* actually breaks, not just wherever the text happens to wrap.
++**Closed state:** a floating glass pill detached from the top of the viewport — `margin-top`, centered, `width: max-content`, fully rounded.
+ 
+-## Icons
++**Hamburger morph:** on click, the lines genuinely rotate and translate into an X (`rotate-45` / `-rotate-45` with absolute positioning) — never simply swap icon or disappear.
+ 
+-Prefer a considered icon set (e.g. Phosphor, Solar, Iconamoon) over the default that ships with whatever UI kit is in use — the most common tell of an unconsidered build is Lucide/Feather/Material Icons used purely because they're the framework default, not because anyone chose them. Standardize on one stroke weight throughout.
++**Modal expansion:** the menu opens as a screen-filling overlay with a heavy glass effect — `backdrop-blur-3xl` over `bg-black/80` or `bg-white/80`.
+ 
+-## The "fluid island" nav pattern (use when it fits the project's mood)
++**Staggered mask reveal:** nav links inside the expanded state fade in and slide up from `translate-y-12 opacity-0` to `translate-y-0 opacity-100`, staggered per item (`delay-100`, `delay-150`, `delay-200`, ...).
+ 
+-Not mandatory for every site, but a strong, distinctive default when nothing more specific is called for: a floating pill-shaped nav detached from the very top of the viewport (`margin-top`, centered, `width: max-content`, fully rounded) rather than a full-width docked bar. On mobile, the hamburger icon's lines should genuinely rotate/translate into an X (never just swap icons or vanish), and the expanded menu should be a heavy-blur full-screen overlay with nav links staggering in one at a time, not a plain dropdown.
++## States — every interactive element ships with all of these
+ 
+-## States — every interactive element needs all of these
++- **Hover** — background shift, slight scale, or translate.
++- **Active/pressed** — `scale(0.98)` or `translateY(1px)` for physical feedback.
++- **Focus** — a visible focus ring. Accessibility requirement, not optional.
++- **Loading** — skeleton loaders shaped like the real layout, not circular spinners.
++- **Empty** — a composed "getting started" view, never a blank panel.
++- **Error** — inline and specific, never `window.alert()`.
+ 
+-Hover (subtle shift/scale), active/pressed (`scale(0.98)` or similar physical feedback), focus (a real visible ring — accessibility requirement, not optional), loading (skeleton shaped like the real layout, not a generic spinner), empty (a composed "getting started" view, not a blank panel), error (inline and specific, never a raw `alert()`). No dead links — a button pointing at `#` gets either a real destination or a visibly-disabled state. The current nav item should be visually indicated.
++No dead links — a button pointing at `#` is either linked or visually disabled. The current page/section is indicated in navigation.
+ 
+ ## Content realism (ties directly to `SKILL.md`'s "No stand-ins" rule)
+ 
+-- No Lorem Ipsum, ever — real draft copy instead.
+-- No generic placeholder names ("John Doe") or placeholder company names ("Acme Corp," "Nexus") — invent something specific and contextual, or use the user's real names/brands if given.
+-- No suspiciously round fake numbers (`99.99%`, `50%`, `$100.00`) — organic-looking figures read as real (`47.2%`, `$99.00`) and shouldn't be fabricated as fact either; only use real numbers the user provides.
+-- Avoid the specific tells of AI-generated copy: "Elevate," "Seamless," "Unleash," "Next-gen," "Game-changer," "Delve," "Tapestry," "In the world of..." — write plain, specific language instead.
+-- Sentence case in headers, not Title Case Everywhere. Active voice ("we couldn't save your changes," not "mistakes were made"). No exclamation marks in success states; error messages are direct ("Connection failed. Please try again"), not a cutesy "Oops!"
++- No Lorem Ipsum — write real draft copy.
++- No "John Doe" — use diverse, realistic names.
++- No placeholder brand names ("Acme Corp," "Nexus," "SmartFlow") — invent something contextual and believable, or use the user's real names if given.
++- No round fake numbers (`99.99%`, `50%`, `$100.00`) — organic data reads as real (`47.2%`, `$99.00`, `+1 (312) 847-1928`); only use real figures the user actually provides, never fabricate specifics as fact.
++- No AI clichés: "Elevate," "Seamless," "Unleash," "Next Gen," "Game changer," "Delve," "Tapestry," "In the world of..." — write plain, specific language instead.
++- Sentence case headers, not Title Case On Everything. Active voice ("we couldn't save your changes," not "mistakes were made"). No exclamation marks in success messages, no "Oops!" in errors — be direct: "Connection failed. Please try again."
++- Unique avatars per person, varied blog post dates — not the same image/date reused.
+ 
+-## Ship checklist — easy to forget, breaks the "real, complete site" bar if missing
++## Ship requirements
+ 
+-Custom branded 404, client-side form validation (email format, required fields), a skip-to-content link for keyboard users, cookie consent where the jurisdiction requires it, a real favicon, `<title>` + meta description + `og:image` + social tags on every page, alt text on every meaningful image, semantic HTML (`<nav>`, `<main>`, `<article>`, `<aside>`, `<section>` — not div soup), and a way back to the rest of the site from every page.
++Privacy policy and terms links in the footer, a custom branded 404, client-side form validation (email format, required fields), a skip-to-content link for keyboard users, cookie consent where the jurisdiction requires it, a branded favicon, `<title>` + meta description + `og:image` + social sharing tags on every page, alt text on every meaningful image, semantic HTML (`<nav>`, `<main>`, `<article>`, `<aside>`, `<section>` — not div soup), and a way back from every page.

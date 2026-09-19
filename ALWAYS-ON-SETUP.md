@@ -43,6 +43,38 @@ Before substantive work on any request, check all installed skills (any publishe
 
 Same idea — find whatever file that tool loads automatically at session start, and add the same "check all installed skills before proceeding" instruction.
 
+## Frontend design values — a stronger mechanism, where it actually exists
+
+`frontend-ui-ux-wizard` ships real hook scripts (not just instructions) that force-inject `design-system-values.md` into context right before a frontend file gets written — bypassing the model's discretion about whether to open the reference file at all. This only works where the host tool has a real hook API to build against:
+
+| Tool | Force-injection available? | Notes |
+|---|---|---|
+| **Claude Code** | ✅ Yes, tested and working | `PreToolUse` hook |
+| **Cursor 1.7+** | ⚠️ Mechanism exists, currently buggy | Cursor has an open, acknowledged bug where injected context isn't always surfaced to the model — install it anyway, it should start working once fixed |
+| **Codex, Antigravity, OpenCode, Windsurf, GitHub Copilot** | ❌ No hooks API for context injection yet | The instruction-file approach above is the real lever for these — there's no stronger option available today |
+
+**Claude Code setup** — add to your project's `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/skills/frontend-ui-ux-wizard/hooks/claude-code/inject-design-values.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Cursor setup** — copy `skills/frontend-ui-ux-wizard/hooks/cursor/hooks.json` to `.cursor/hooks.json` in your project, and make sure `hooks/cursor/inject-design-values.sh` is executable (`chmod +x`).
+
 ## Why this isn't 100% automatic
 
 A skill is something an agent *can* reach for, not something that reaches into every conversation unconditionally — that's intentional, so skills don't fire on requests they have nothing to do with. `skill-router`'s broad trigger plus a persistent context file are the two real levers available; together they get close to "always check," but neither one alone is a hard guarantee, and no combination is 100% enforceable at the skill-package level — that would require the host tool itself to change how it triggers skills.
